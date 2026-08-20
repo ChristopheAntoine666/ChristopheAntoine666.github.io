@@ -1,54 +1,41 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <base target="_top">
-    <!-- Import de la librairie de lecture de QR Code -->
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   </head>
   <body>
-    <h3>Pointer le QR Code</h3>
-    
+    <h3>Scanner le QR Code</h3>
     <video id="video" width="320" height="240" autoplay></video><br><br>
-    <button onclick="capturerEtDecoder()">Scanner & Extraire l'URL</button>
-    
+    <button onclick="scanner()">Capturer</button>
     <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
-    <p id="resultat" style="word-break: break-all; font-weight: bold;"></p>
 
     <script>
-      // Démarrage de la caméra (caméra arrière si sur mobile)
       navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then(stream => {
-          document.getElementById('video').srcObject = stream;
-        })
-        .catch(err => console.error("Erreur d'accès à la caméra:", err));
+        .then(stream => { document.getElementById('video').srcObject = stream; });
 
-      function capturerEtDecoder() {
+      function scanner() {
         var video = document.getElementById('video');
         var canvas = document.getElementById('canvas');
         var context = canvas.getContext('2d');
-        var resultatUI = document.getElementById('resultat');
-
-        // Capture de l'image de la vidéo sur le canvas
+        
         context.drawImage(video, 0, 0, 320, 240);
-        
-        // Extraction des données brutes de l'image
         var imageData = context.getImageData(0, 0, 320, 240);
-        
-        // Analyse avec jsQR
         var code = jsQR(imageData.data, imageData.width, imageData.height);
 
-        if (code) {
-          resultatUI.innerText = "URL trouvée : " + code.data;
-          
-          // Envoi de l'URL lue vers Google Sheets
-          google.script.run
-            .withSuccessHandler(msg => {
-              resultatUI.innerText = msg + " (" + code.data + ")";
-            })
-            .ecrireUrlDansFeuille(code.data);
-            
+        if (code && code.data) {
+          // Structure du message à envoyer à la fenêtre parente
+          var payload = {
+            status: "OK",
+            url: code.data
+          };
+
+          // Envoi à la fenêtre principale (Index)
+          if (window.opener) {
+            window.opener.postMessage(payload, "*");
+            window.close(); // Ferme le scanner une fois capturé
+          }
         } else {
-          resultatUI.innerText = "Aucun QR code détecté. Réessayez.";
+          alert("Aucun QR Code détecté.");
         }
       }
     </script>
